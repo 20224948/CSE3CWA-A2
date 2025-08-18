@@ -1,20 +1,22 @@
-// app/layout.tsx
 import type { Metadata } from "next";
+import Nav from "./components/Nav";
+import Breadcrumb from "./components/Breadcrumb";
 
 export const metadata: Metadata = {
   title: "CSE3CWA - Assignment 1",
-  description: "Assignment scaffold with student number and navigation",
+  description: "Assignment 1 for CSE3CWA, created by Mark Prado (20224948).",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", lineHeight: 1.5 }}>
-        {/* Header with student ID + navigation */}
+        <style>{`
+          :root { color-scheme: light dark; }
+          a { color: inherit; text-decoration: underline; }
+          header, footer { background: transparent; }
+        `}</style>
+
         <header
           style={{
             display: "flex",
@@ -24,7 +26,6 @@ export default function RootLayout({
             borderBottom: "1px solid #ddd",
           }}
         >
-          {/* Student number badge */}
           <div
             style={{
               fontWeight: 700,
@@ -36,19 +37,14 @@ export default function RootLayout({
             20224948
           </div>
 
-          <nav aria-label="Main" style={{ display: "flex", gap: 12 }}>
-            <a href="/">Home</a>
-            <a href="/about">About</a>
-            <a href="/escape-room">Escape Room</a>
-            <a href="/coding-races">Coding Races</a>
-            <a href="/court-room">Court Room</a>
-          </nav>
+          {/* Menu (sets/reads cookie for navigation) */}
+          <Nav />
         </header>
 
-        {/* Page content */}
+        <Breadcrumb />
+
         <main style={{ padding: 16 }}>{children}</main>
 
-        {/* Footer with your ID */}
         <footer
           style={{
             padding: 16,
@@ -57,8 +53,7 @@ export default function RootLayout({
             textAlign: "center",
           }}
         >
-          © {new Date().getFullYear()} Mark Prado • Student: 20224948 •{" "}
-          {new Date().toLocaleDateString()}
+          © {new Date().getFullYear()} Mark Prado • Student: 20224948 • {new Date().toLocaleDateString()}
         </footer>
       </body>
     </html>
