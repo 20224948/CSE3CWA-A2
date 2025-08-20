@@ -29,6 +29,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <style>{`
           :root { color-scheme: light dark; }
           a { color: inherit; text-decoration: underline; }
+          html[data-theme="light"] {
+  --bg: #ffffff;
+  --text: #111111;
+  --panel: #ffffff;
+  --muted: #f5f7fa;
+  --border: #cfd6df;
+  --accent: #2563eb;
+  --button-bg: #ffffff;
+  --button-text: #111111;
+}
+html[data-theme="dark"] {
+  --bg: #0b0f14;
+  --text: #e8edf2;
+  --panel: #0f151d;
+  --muted: #0b1118;
+  --border: #2a3441;
+  --accent: #7aa2ff;
+  --button-bg: #131a23;
+  --button-text: #e8edf2;
+}
           html[data-theme="light"] body { background:#ffffff; color:#111111; }
           html[data-theme="dark"]  body { background:#111111; color:#eeeeee; }
           header, footer { background: transparent; }
