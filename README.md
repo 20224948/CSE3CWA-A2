@@ -39,8 +39,9 @@ Clone the repo and run locally:
 ```bash
 git clone https://github.com/20224948/CSE3CWA-A1.git
 cd CSE3CWA-A1
-npm install
+npm installv
 npm run dev
+```
 
 Then open in your browser:
 http://localhost:3000
