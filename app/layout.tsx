@@ -5,18 +5,18 @@ import Breadcrumb from "./components/Breadcrumb";
 import ThemeSwitch from "./components/ThemeSwitch";
 
 export const metadata: Metadata = {
-    title: "CSE3CWA – Assignment 1",
-    description: "Assignment 1 for CSE3CWA, created by Mark Prado (20224948).",
+  title: "CSE3CWA – Assignment 1",
+  description: "Assignment 1 for CSE3CWA, created by Mark Prado (20224948).",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-    return (
-        <html lang="en" data-theme="light" suppressHydrationWarning>
-            <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", lineHeight: 1.5 }}>
-                {/* Set theme ASAP from cookie */}
-                <script
-                    dangerouslySetInnerHTML={{
-                        __html: `
+  return (
+    <html lang="en" data-theme="light" suppressHydrationWarning>
+      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", lineHeight: 1.5 }}>
+        {/* Set theme ASAP from cookie */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
 (function(){
   try{
     var m = document.cookie.match(/(?:^|; )theme=([^;]+)/);
@@ -24,13 +24,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     document.documentElement.setAttribute('data-theme', t);
   }catch(e){}
 })();`,
-                    }}
-                />
+          }}
+        />
 
-                {/* Theme + header + drawer styles */}
-                <style>{`
+        {/* Theme + header + drawer styles (with mobile overflow fixes) */}
+        <style>{`
           :root { color-scheme: light dark; }
           a { color: inherit; text-decoration: underline; }
+
+          /* --- kill page-wide horizontal scroll on mobile --- */
+          *, *::before, *::after { box-sizing: border-box; }
+          html, body { max-width: 100%; overflow-x: hidden; }
+          header, main, footer { max-width: 100%; overflow-x: hidden; }
+          img, svg, video, canvas { max-width: 100%; height: auto; }
+          pre { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
           html[data-theme="light"] {
             --bg:#ffffff; --text:#111111; --panel:#ffffff; --muted:#f5f7fa;
@@ -40,18 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             --bg:#0b0f14; --text:#e8edf2; --panel:#0f151d; --muted:#0b1118;
             --border:#2a3441; --accent:#7aa2ff; --button-bg:#131a23; --button-text:#e8edf2;
           }
-          
           html[data-theme="earth"] {
-            --bg:     #f6f2ea;
-            --text:   #2b2b2b;
-            --panel:  #efe8d8;
-            --muted:  #e7decd;
-            --border: #c8bfae;
-            --accent: #8b5e34;
-            --button-bg:   #f6f2ea;
-            --button-text: #2b2b2b;
-        }
-
+            --bg:#f6f2ea; --text:#2b2b2b; --panel:#efe8d8; --muted:#e7decd;
+            --border:#c8bfae; --accent:#8b5e34; --button-bg:#f6f2ea; --button-text:#2b2b2b;
+          }
 
           body { background: var(--bg); color: var(--text); }
           header, footer { background: transparent; }
@@ -71,10 +70,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           .overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.35);
             opacity: 0; pointer-events: none; transition: opacity .2s ease;
-            z-index: 1000;
+            z-index: 1000; width: 100%;
           }
           .drawer {
-            position: fixed; top: 0; left: 0; height: 100dvh; width: 280px;
+            position: fixed; top: 0; left: 0; height: 100dvh; width: 280px; max-width: 100vw;
             background: var(--panel); color: var(--text);
             transform: translateX(-100%); transition: transform .2s ease;
             box-shadow: 2px 0 12px rgba(0,0,0,.3);
@@ -97,62 +96,84 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           .nav-link {
             display: block; padding: 10px 12px; border: 1px solid var(--border);
             border-radius: 10px; text-decoration: none; background: var(--muted); color: var(--text);
+            max-width: 100%;
           }
           .nav-link:hover { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+          /* ==== two-up layout → stacks on mobile, side-by-side on desktop ==== */
+          .two-up {
+            display: grid;
+            grid-template-columns: 1fr;   /* stacked by default */
+            gap: 16px;
+          }
+          @media (min-width: 980px) {
+            .two-up {
+              grid-template-columns: 1fr 1fr; /* two columns on desktop */
+              align-items: start;
+            }
+          }
+
+          /* make sure wide content (like code) scrolls inside itself, not the page */
+          .two-up .output {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+          }
+
         `}</style>
 
-                {/* Header */}
-                <header
-                    className="surface"
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 16,
-                        padding: "12px 16px",
-                        borderBottom: "1px solid",
-                    }}
-                >
-                    {/* Mobile hamburger trigger */}
-                    <label htmlFor="nav-toggle" className="hamburger-btn mobile-only" aria-label="Open menu">
-                        ☰ <span style={{ fontSize: 14 }}>Menu</span>
-                    </label>
+        {/* Header */}
+        <header
+          className="surface"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            padding: "12px 16px",
+            borderBottom: "1px solid",
+          }}
+        >
+          {/* Mobile hamburger trigger */}
+          <label htmlFor="nav-toggle" className="hamburger-btn mobile-only" aria-label="Open menu">
+            ☰ <span style={{ fontSize: 14 }}>Menu</span>
+          </label>
 
-                    {/* Desktop navigation only */}
-                    <div className="desktop-only">
-                        <Nav />
-                    </div>
+          {/* Desktop navigation only */}
+          <div className="desktop-only">
+            <Nav />
+          </div>
 
-                    <div style={{ flex: 1 }} />
+          <div style={{ flex: 1 }} />
 
-                    {/* Theme switch on far right */}
-                    <ThemeSwitch />
-                </header>
+          {/* Theme switch on far right */}
+          <ThemeSwitch />
+        </header>
 
-                {/* Hidden checkbox drives the drawer */}
-                <input id="nav-toggle" type="checkbox" aria-hidden="true" />
+        {/* Hidden checkbox drives the drawer */}
+        <input id="nav-toggle" type="checkbox" aria-hidden="true" />
 
-                {/* Mobile overlay + drawer */}
-                <label htmlFor="nav-toggle" className="overlay mobile-only" aria-label="Close menu" />
-                <aside className="drawer mobile-only" aria-label="Main navigation">
-                    <label htmlFor="nav-toggle" className="close-btn" aria-label="Close menu">×</label>
-                    <nav>
-                        <ul className="nav-list">
-                            <li><Link href="/" className="nav-link">Home</Link></li>
-                            <li><Link href="/about" className="nav-link">About</Link></li>
-                            <li><Link href="/escape-room" className="nav-link">Escape Room</Link></li>
-                            <li><Link href="/coding-races" className="nav-link">Coding Races</Link></li>
-                            <li><Link href="/court-room" className="nav-link">Court Room</Link></li>
-                        </ul>
-                    </nav>
-                </aside>
+        {/* Mobile overlay + drawer */}
+        <label htmlFor="nav-toggle" className="overlay mobile-only" aria-label="Close menu" />
+        <aside className="drawer mobile-only" aria-label="Main navigation">
+          <label htmlFor="nav-toggle" className="close-btn" aria-label="Close menu">×</label>
+          <nav>
+            <ul className="nav-list">
+              <li><Link href="/" className="nav-link">Home</Link></li>
+              <li><Link href="/about" className="nav-link">About</Link></li>
+              <li><Link href="/escape-room" className="nav-link">Escape Room</Link></li>
+              <li><Link href="/coding-races" className="nav-link">Coding Races</Link></li>
+              <li><Link href="/court-room" className="nav-link">Court Room</Link></li>
+            </ul>
+          </nav>
+        </aside>
 
-                {/* CLOSE DRAWER AFTER CLICKING A MENU LINK */}
-                <script
-                    dangerouslySetInnerHTML={{
-                        __html: `
+        {/* CLOSE DRAWER AFTER CLICKING A MENU LINK */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
       (function () {
         function closeDrawerIfLinkClick(evt) {
-          var link = evt.target && evt.target.closest('.drawer a');
+          var link = evt.target && evt.target.closest && evt.target.closest('.drawer a');
           if (!link) return;
           var cb = document.getElementById('nav-toggle');
           if (cb && 'checked' in cb) cb.checked = false;
@@ -160,29 +181,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         document.addEventListener('click', closeDrawerIfLinkClick, true);
       })();
     `,
-                    }}
-                />
+          }}
+        />
 
-                {/* Breadcrumbs */}
-                <Breadcrumb />
+        {/* Breadcrumbs */}
+        <Breadcrumb />
 
+        {/* Main content */}
+        <main style={{ padding: 16 }}>{children}</main>
 
-                {/* Main content */}
-                <main style={{ padding: 16 }}>{children}</main>
-
-                {/* Footer */}
-                <footer
-                    className="surface"
-                    style={{
-                        padding: 16,
-                        borderTop: "1px solid",
-                        fontSize: 14,
-                        textAlign: "center",
-                    }}
-                >
-                    © {new Date().getFullYear()} Mark Prado • Student: 20224948 • {new Date().toLocaleDateString()}
-                </footer>
-            </body>
-        </html>
-    );
+        {/* Footer */}
+        <footer
+          className="surface"
+          style={{
+            padding: 16,
+            borderTop: "1px solid",
+            fontSize: 14,
+            textAlign: "center",
+          }}
+        >
+          © {new Date().getFullYear()} Mark Prado • Student: 20224948 • {new Date().toLocaleDateString()}
+        </footer>
+      </body>
+    </html>
+  );
 }

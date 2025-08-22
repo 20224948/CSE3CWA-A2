@@ -9,11 +9,11 @@ export default function HamburgerMenu() {
   const router = useRouter();
 
   const items: Item[] = [
-    { href: '/',            label: 'Home' },
-    { href: '/about',       label: 'About' },
+    { href: '/', label: 'Home' },
+    { href: '/about', label: 'About' },
     { href: '/escape-room', label: 'Escape Room' },
-    { href: '/coding-races',label: 'Coding Races' },
-    { href: '/court-room',  label: 'Court Room' },
+    { href: '/coding-races', label: 'Coding Races' },
+    { href: '/court-room', label: 'Court Room' },
   ];
 
   const go = (href: string) => {
