@@ -1,40 +1,47 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CSE3CWA – Assignment 1
+
+This repository contains my Assignment 1 submission for  
+Cloud-Based Web Applications (CSE3CWA) at La Trobe University.
+
+---
+
+## Student Details
+- Name: Mark Prado  
+- Student Number: 20224948  
+
+---
+
+## Features Implemented
+- Dark/Light theme toggle  
+- Custom Earth theme option  
+- Responsive navigation menu (hamburger/kebab)  
+- Footer with copyright, student info, and date  
+- About page with student details and embedded tutorial video (`Demo.mp4`)  
+- Home page with a Tab Generator that outputs HTML5 + JavaScript (inline CSS)  
+- Cookies to remember the active tab state  
+
+---
+
+## Tutorial Video
+The tutorial video is available on the About page inside the app.  
+You can also view it directly here:
+
+[Watch Demo.mp4](https://github.com/20224948/CSE3CWA-A1/blob/main/public/Demo.mp4)
+
+(If GitHub does not preview the video correctly, download it or run the project locally to view it.)
+
+---
 
 ## Getting Started
 
-First, run the development server:
+Clone the repo and run locally:
 
 ```bash
+git clone https://github.com/20224948/CSE3CWA-A1.git
+cd CSE3CWA-A1
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open in your browser:
+http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# CSE3CWA-A1
->>>>>>> 901311bc6fefa15554a50c5b69346bc745c2e510
