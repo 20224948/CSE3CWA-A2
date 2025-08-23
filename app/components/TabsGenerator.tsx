@@ -1,72 +1,111 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 type Tab = { title: string; content: string };
 
+// localStorage keys
+const LS_TABS = "tg.tabs.v1";
+const LS_ACTIVE = "tg.active.v1";
+
 export default function TabsGenerator() {
-    // left column: tabs you’re designing
-    const [tabs, setTabs] = useState<Tab[]>([
-        { title: "Tab 1", content: "Welcome!" },
-        { title: "Tab 2", content: "Install VSCode\nInstall Chrome\nInstall Node" },
-    ]);
-    const [active, setActive] = useState(0); // index of selected tab in editor
+  // left column: tabs you’re designing
+  const [tabs, setTabs] = useState<Tab[]>([
+    { title: "Tab 1", content: "Welcome!" },
+    { title: "Tab 2", content: "Install VSCode\nInstall Chrome\nInstall Node" },
+  ]);
+  const [active, setActive] = useState(0); // index of selected tab in editor
 
-    // --- helpers
-    function addTab() {
-        setTabs((prev) => [...prev, { title: `Tab ${prev.length + 1}`, content: "" }]);
-        setActive((prev) => prev + 1);
+  // ---- PERSISTENCE: load once on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_TABS);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) {
+          const safe = parsed.map((t: any, i: number) => ({
+            title: typeof t?.title === "string" ? t.title : `Tab ${i + 1}`,
+            content: typeof t?.content === "string" ? t.content : "",
+          }));
+          setTabs(safe);
+        }
+      }
+      const a = localStorage.getItem(LS_ACTIVE);
+      if (a !== null) {
+        const idx = parseInt(a, 10);
+        if (!Number.isNaN(idx) && idx >= 0 && idx < tabs.length) {
+          setActive(idx);
+        }
+      }
+    } catch {
+      // ignore parse/storage errors
     }
-    function updateTab(i: number, patch: Partial<Tab>) {
-        setTabs((prev) => prev.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
-    }
-    function removeTab(i: number) {
-        setTabs((prev) => prev.filter((_, idx) => idx !== i));
-        setActive((prev) => Math.max(0, Math.min(prev, tabs.length - 2)));
-    }
-    function escapeHtml(s: string) {
-        return s
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#039;");
-    }
-    // Turn multi-line content into a list. Lines like "1. item" or "- item" become <li>…</li>.
-    function contentToHtml(s: string) {
-        const lines = s.split(/\r?\n/).filter((l) => l.trim().length > 0);
-        if (lines.length <= 1) return escapeHtml(s);
-        const items = lines
-            .map((line) => line.replace(/^\s*(?:\d+[.)]|\*|-)\s*/, "")) // strip "1." / "-" / "*"
-            .map((line) => `    <li>${escapeHtml(line)}</li>`)
-            .join("\n");
-        return `<ul>\n${items}\n  </ul>`;
-    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // --- right column: generated single‑file HTML (HTML + inline CSS + JS)
-    const output = useMemo(() => {
-        // build the button bar
-        const headers = tabs
-            .map(
-                (t, i) =>
-                    `<button class="tab" role="tab" id="tab-${i + 1}" aria-selected="${i === 0}" aria-controls="panel-${i + 1}" ${i === 0 ? "" : 'tabindex="-1"'
-                    }><span class="num">${i + 1}.</span> ${escapeHtml(t.title || `Tab ${i + 1}`)}</button>`
-            )
-            .join("\n      ");
+  // ---- PERSISTENCE: save on change
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_TABS, JSON.stringify(tabs));
+    } catch {}
+  }, [tabs]);
 
-        // build the panels
-        const panels = tabs
-            .map(
-                (t, i) =>
-                    `<section id="panel-${i + 1}" role="tabpanel" aria-labelledby="tab-${i + 1}" ${i === 0 ? "" : "hidden"
-                    }>
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_ACTIVE, String(active));
+    } catch {}
+  }, [active]);
+
+  // --- helpers
+  function addTab() {
+    setTabs((prev) => {
+      const next = [...prev, { title: `Tab ${prev.length + 1}`, content: "" }];
+      setActive(prev.length);
+      return next;
+    });
+  }
+  function updateTab(i: number, patch: Partial<Tab>) {
+    setTabs((prev) => prev.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
+  }
+  function removeTab(i: number) {
+    setTabs((prev) => {
+      const next = prev.filter((_, idx) => idx !== i);
+      setActive((prevActive) => Math.max(0, Math.min(prevActive, next.length - 1)));
+      return next;
+    });
+  }
+
+  function escapeHtml(s: string) {
+    return s
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  // --- right column: generated single-file HTML (HTML + inline CSS + JS)
+  const output = useMemo(() => {
+    const headers = tabs
+      .map(
+        (t, i) =>
+          `<button class="tab" role="tab" id="tab-${i + 1}" aria-selected="${i === 0}" aria-controls="panel-${i + 1}" ${
+            i === 0 ? "" : 'tabindex="-1"'
+          }><span class="num">${i + 1}.</span> ${escapeHtml(t.title || `Tab ${i + 1}`)}</button>`
+      )
+      .join("\n      ");
+
+    const panels = tabs
+      .map(
+        (t, i) =>
+          `<section id="panel-${i + 1}" role="tabpanel" aria-labelledby="tab-${i + 1}" ${i === 0 ? "" : "hidden"}>
   <h3>${escapeHtml(t.title || `Tab ${i + 1}`)}</h3>
   ${escapeHtml(t.content).replaceAll("\n", "<br/>")}
 </section>`
-            )
-            .join("\n    ");
+      )
+      .join("\n    ");
 
-        return `<!doctype html>
+    return `<!doctype html>
 <html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
@@ -90,12 +129,10 @@ export default function TabsGenerator() {
     .student{font-weight:600; padding:4px 8px; border:1px solid var(--border); border-radius:6px}
     .spacer{flex:1}
 
-    /* Theme toggle (simple button) */
     #themeToggle{border:1px solid var(--border); background:var(--panel); color:var(--text);
       padding:6px 10px; border-radius:8px; cursor:pointer}
     #themeToggle:focus{outline:3px solid var(--focus); outline-offset:2px}
 
-    /* Tab bar */
     .tablist{display:flex; gap:8px; border-bottom:2px solid var(--border); padding-bottom:8px; flex-wrap:wrap}
     .tab{
       display:inline-flex; align-items:center; gap:8px;
@@ -112,7 +149,6 @@ export default function TabsGenerator() {
     .tab:focus{outline:3px solid var(--focus); outline-offset:2px}
     .num{display:inline-block; padding:2px 6px; border-radius:8px; background:var(--chip); font-weight:600}
 
-    /* Panels */
     [role="tabpanel"]{
       border:1px solid var(--border); border-top:none; padding:12px;
       border-radius:0 10px 10px 10px; background:var(--panel); margin-top:-1px;
@@ -141,7 +177,6 @@ export default function TabsGenerator() {
 
   <script>
     (function(){
-      /* ---- Theme toggle with cookie ---- */
       var COOKIE = 'theme';
       function setCookie(name, value, days){
         var d = new Date(); d.setTime(d.getTime() + days*24*60*60*1000);
@@ -163,7 +198,6 @@ export default function TabsGenerator() {
         applyLabel();
       });
 
-      /* ---- Tabs behaviour + remember last index ---- */
       var tabs = Array.from(document.querySelectorAll('[role="tab"]'));
       var KEY = 'lastTabIndex';
       function setActive(index, focus){
@@ -200,141 +234,141 @@ export default function TabsGenerator() {
   </script>
 </body>
 </html>`;
-    }, [tabs]);
+  }, [tabs]);
 
-    // Download the generated code as an HTML file
-    function downloadHtml() {
-        const blob = new Blob([output], { type: "text/html;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "tabs.html";
-        a.click();
-        URL.revokeObjectURL(url);
-    }
+  // Download the generated code as an HTML file
+  function downloadHtml() {
+    const blob = new Blob([output], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "tabs.html";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
-    // --- layout styles for the builder (unchanged)
-    const box: React.CSSProperties = {
-        border: "1px solid var(--border)",
-        borderRadius: 8,
-        padding: 12,
-        background: "var(--panel)",
-    };
-    const btn: React.CSSProperties = {
-        padding: "6px 10px",
-        borderRadius: 6,
-        border: "1px solid var(--border)",
-        background: "var(--button-bg)",
-        color: "var(--button-text)",
-        cursor: "pointer",
-    };
-    const inputStyle: React.CSSProperties = {
-        width: "100%",
-        padding: 8,
-        borderRadius: 6,
-        border: "1px solid var(--border)",
-        background: "var(--panel)",
-        color: "var(--text)",
-        boxSizing: "border-box",
-    };
+  // --- layout styles for the builder (unchanged)
+  const box: React.CSSProperties = {
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    padding: 12,
+    background: "var(--panel)",
+  };
+  const btn: React.CSSProperties = {
+    padding: "6px 10px",
+    borderRadius: 6,
+    border: "1px solid var(--border)",
+    background: "var(--button-bg)",
+    color: "var(--button-text)",
+    cursor: "pointer",
+  };
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: 8,
+    borderRadius: 6,
+    border: "1px solid var(--border)",
+    background: "var(--panel)",
+    color: "var(--text)",
+    boxSizing: "border-box",
+  };
 
-    return (
-        <main>
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(0,1fr)", // ⟵ CHANGED: always stacked
-                    gap: 24,
-                    alignItems: "start",
-                }}
-            >
-                {/* LEFT: editor (tabs + fields) */}
-                <section>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                        <h2 style={{ margin: 0, fontSize: 18 }}>Tabs</h2>
-                        <button onClick={addTab} title="Add tab" style={btn}>
-                            + Add
-                        </button>
-                    </div>
+  return (
+    <main>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0,1fr)", // always stacked
+          gap: 24,
+          alignItems: "start",
+        }}
+      >
+        {/* LEFT: editor (tabs + fields) */}
+        <section>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Tabs</h2>
+            <button onClick={addTab} title="Add tab" style={btn}>
+              + Add
+            </button>
+          </div>
 
-                    {/* headers list */}
-                    <div style={{ ...box, display: "grid", gap: 8, marginBottom: 12, minWidth: 0 }}>
-                        {tabs.map((t, i) => (
-                            <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
-                                <button
-                                    onClick={() => setActive(i)}
-                                    style={{
-                                        ...btn,
-                                        flex: "1 1 auto",
-                                        minWidth: 0,
-                                        maxWidth: "100%",
-                                        textAlign: "left",
-                                        whiteSpace: "nowrap",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        outline: i === active ? `2px solid var(--accent)` : "none",
-                                    }}
-                                >
-                                    {t.title || `Tab ${i + 1}`}
-                                </button>
-                                <button
-                                    onClick={() => removeTab(i)}
-                                    aria-label={`Remove ${t.title || `Tab ${i + 1}`}`}
-                                    title="Remove"
-                                    style={btn}
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        ))}
-                    </div>
+          {/* headers list */}
+          <div style={{ ...box, display: "grid", gap: 8, marginBottom: 12, minWidth: 0 }}>
+            {tabs.map((t, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 0 }}>
+                <button
+                  onClick={() => setActive(i)}
+                  style={{
+                    ...btn,
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    maxWidth: "100%",
+                    textAlign: "left",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    outline: i === active ? `2px solid var(--accent)` : "none",
+                  }}
+                >
+                  {t.title || `Tab ${i + 1}`}
+                </button>
+                <button
+                  onClick={() => removeTab(i)}
+                  aria-label={`Remove ${t.title || `Tab ${i + 1}`}`}
+                  title="Remove"
+                  style={btn}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
 
-                    {/* active tab editor */}
-                    <div style={{ ...box }}>
-                        <label style={{ display: "block", fontSize: 13, opacity: 0.8, marginBottom: 6 }}>Title</label>
-                        <input
-                            value={tabs[active]?.title ?? ""}
-                            onChange={(e) => updateTab(active, { title: e.target.value })}
-                            style={{ ...inputStyle, marginBottom: 10 }}
-                        />
-                        <label style={{ display: "block", fontSize: 13, opacity: 0.8, marginBottom: 6 }}>Content</label>
-                        <textarea
-                            value={tabs[active]?.content ?? ""}
-                            onChange={(e) => updateTab(active, { content: e.target.value })}
-                            rows={10}
-                            style={inputStyle}
-                        />
-                    </div>
-                </section>
+          {/* active tab editor */}
+          <div style={{ ...box }}>
+            <label style={{ display: "block", fontSize: 13, opacity: 0.8, marginBottom: 6 }}>Title</label>
+            <input
+              value={tabs[active]?.title ?? ""}
+              onChange={(e) => updateTab(active, { title: e.target.value })}
+              style={{ ...inputStyle, marginBottom: 10 }}
+            />
+            <label style={{ display: "block", fontSize: 13, opacity: 0.8, marginBottom: 6 }}>Content</label>
+            <textarea
+              value={tabs[active]?.content ?? ""}
+              onChange={(e) => updateTab(active, { content: e.target.value })}
+              rows={10}
+              style={inputStyle}
+            />
+          </div>
+        </section>
 
-                {/* RIGHT: output code + actions (now below, because stacked) */}
-                <section>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                        <h2 style={{ margin: 0, fontSize: 18 }}>Output</h2>
-                        <button onClick={() => navigator.clipboard?.writeText(output)} style={btn}>
-                            Copy
-                        </button>
-                        <button onClick={downloadHtml} style={btn}>
-                            Download
-                        </button>
-                    </div>
+        {/* RIGHT: output code + actions (now below, because stacked) */}
+        <section>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <h2 style={{ margin: 0, fontSize: 18 }}>Output</h2>
+            <button onClick={() => navigator.clipboard?.writeText(output)} style={btn}>
+              Copy
+            </button>
+            <button onClick={downloadHtml} style={btn}>
+              Download
+            </button>
+          </div>
 
-                    <div
-                        style={{
-                            ...box,
-                            maxHeight: 480,
-                            overflow: "auto",
-                            overflowX: "auto",
-                            fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                            fontSize: 12,
-                            whiteSpace: "pre",
-                            maxWidth: "100%",
-                        }}
-                    >
-                        {output}
-                    </div>
-                </section>
-            </div>
-        </main>
-    );
+          <div
+            style={{
+              ...box,
+              maxHeight: 480,
+              overflow: "auto",
+              overflowX: "auto",
+              fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: 12,
+              whiteSpace: "pre",
+              maxWidth: "100%",
+            }}
+          >
+            {output}
+          </div>
+        </section>
+      </div>
+    </main>
+  );
 }
