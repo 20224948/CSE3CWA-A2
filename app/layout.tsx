@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import Nav from "./components/Nav";
 import Breadcrumb from "./components/Breadcrumb";
 import ThemeSwitch from "./components/ThemeSwitch";
+import HamburgerMenu from "./components/HamburgerMenu";
 
 export const metadata: Metadata = {
   title: "CSE3CWA – Assignment 1",
@@ -61,88 +60,60 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           header, footer { background: transparent; }
           .surface { border-color: currentColor; opacity: 0.95; }
 
-          /* visibility helpers */
-          .desktop-only { display: none; }
-          .mobile-only  { display: inline-flex; }
-          @media (min-width: 768px) {
-            .desktop-only { display: block; }
-            .mobile-only  { display: none !important; }
-          }
-
-          /* === Drawer / Hamburger === */
-          #nav-toggle { position: fixed; opacity: 0; pointer-events: none; }
-          .overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.35);
-            opacity: 0; pointer-events: none; transition: opacity .2s ease;
-            z-index: 1000; width: 100%;
-          }
-          .drawer {
-            position: fixed; top: 0; left: 0; height: 100dvh; width: 280px;
-            background: var(--panel); color: var(--text);
-            transform: translateX(-100%); transition: transform .2s ease;
-            box-shadow: 2px 0 12px rgba(0,0,0,.3);
-            display: flex; flex-direction: column; z-index: 1001;
-          }
-          #nav-toggle:checked ~ .overlay { opacity: 1; pointer-events: auto; }
-          #nav-toggle:checked ~ .drawer  { transform: translateX(0); }
-
-          .hamburger-btn, .close-btn {
-            background: var(--button-bg); color: var(--button-text);
-            border: 1px solid var(--border); border-radius: 8px;
-            padding: 6px 10px; cursor: pointer; font-size: 18px; line-height: 1;
-          }
-          .hamburger-btn { align-items: center; gap: 8px; }
-          .close-btn { border: none; background: transparent; font-size: 22px; margin: 8px; align-self: flex-end; }
-
-          .nav-list { list-style: none; margin: 0; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-          .nav-link {
-            display: block; padding: 10px 12px; border: 1px solid var(--border);
-            border-radius: 10px; text-decoration: none; background: var(--muted); color: var(--text);
-          }
-          .nav-link:hover { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-          /* === Two-up layout helper === */
-          .two-up {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-          }
+          /* Two-up layout helper */
+          .two-up { display: grid; grid-template-columns: 1fr; gap: 16px; }
           @media (min-width: 980px) {
-            .two-up {
-              grid-template-columns: 1fr 1fr;
-              align-items: start;
-            }
+            .two-up { grid-template-columns: 1fr 1fr; align-items: start; }
           }
           .two-up .output { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 
-          /* === Shared buttons and section dividers (used site-wide) === */
+          /* Shared buttons and section dividers */
           .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 10px 14px;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            background: var(--button-bg);
-            color: var(--button-text);
-            text-decoration: none;
-            cursor: pointer;
-            font-size: 14px;
-            line-height: 1.2;
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 8px; padding: 10px 14px; border-radius: 10px;
+            border: 1px solid var(--border); background: var(--button-bg);
+            color: var(--button-text); text-decoration: none; cursor: pointer;
+            font-size: 14px; line-height: 1.2;
             transition: transform .02s ease, background .15s ease, border-color .15s ease;
           }
           .btn:hover { border-color: var(--accent); }
           .btn:active { transform: translateY(1px); }
-          .btn.primary {
-            background: var(--accent);
-            color: #fff;
-            border-color: var(--accent);
-          }
+          .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
           .btn.ghost { background: transparent; }
           .btn-row { display: flex; flex-wrap: wrap; gap: 12px; }
           .section-divider { border: 0; border-top: 1px solid var(--border); margin: 12px 0; }
 
+          /* Active nav link (used by HamburgerMenu buttons via aria-current) */
+          .nav-link[aria-current="page"] {
+            background: rgba(255,255,255,0.08);
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+          }
+          .nav-link:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+          }
+            /* Hamburger trigger: high-contrast across themes */
+          .hamburger-trigger{
+            background: var(--button-bg);
+            color: var(--button-text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+            line-height: 1;
+            font-size: 18px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 0 rgba(0,0,0,.05);
+          }
+          .hamburger-trigger:hover{ border-color: var(--accent); }
+          .hamburger-trigger:focus-visible{
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+          }
+          .hamburger-trigger svg{ display:block; width:20px; height:20px; }
         `}</style>
 
         {/* Header */}
@@ -156,49 +127,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             borderBottom: "1px solid",
           }}
         >
-          <label htmlFor="nav-toggle" className="hamburger-btn mobile-only" aria-label="Open menu">
-            ☰ <span style={{ fontSize: 14 }}>Menu</span>
-          </label>
-
-          <div className="desktop-only">
-            <Nav />
-          </div>
-
+          {/* Single hamburger (no desktop Nav cluster) */}
+          <HamburgerMenu />
           <div style={{ flex: 1 }} />
-
           <ThemeSwitch />
         </header>
-
-        <input id="nav-toggle" type="checkbox" aria-hidden="true" />
-        <label htmlFor="nav-toggle" className="overlay mobile-only" aria-label="Close menu" />
-        <aside className="drawer mobile-only" aria-label="Main navigation">
-          <label htmlFor="nav-toggle" className="close-btn" aria-label="Close menu">×</label>
-          <nav>
-            <ul className="nav-list">
-              <li><Link href="/" className="nav-link">Home</Link></li>
-              <li><Link href="/about" className="nav-link">About</Link></li>
-              <li><Link href="/escape-room" className="nav-link">Escape Room</Link></li>
-              <li><Link href="/coding-races" className="nav-link">Coding Races</Link></li>
-              <li><Link href="/court-room" className="nav-link">Court Room</Link></li>
-            </ul>
-          </nav>
-        </aside>
-
-        {/* Close drawer when clicking a link */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-(function () {
-  function closeDrawerIfLinkClick(evt) {
-    var link = evt.target && evt.target.closest && evt.target.closest('.drawer a');
-    if (!link) return;
-    var cb = document.getElementById('nav-toggle');
-    if (cb && 'checked' in cb) cb.checked = false;
-  }
-  document.addEventListener('click', closeDrawerIfLinkClick, true);
-})();`,
-          }}
-        />
 
         {/* Breadcrumbs + main content */}
         <Breadcrumb />
