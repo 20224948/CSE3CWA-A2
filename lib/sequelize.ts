@@ -1,39 +1,34 @@
-import { Sequelize, DataTypes, Model } from "sequelize";
+import { Sequelize, DataTypes, Model } from 'sequelize';
 
-let sequelize: Sequelize | null = null;
-function getSequelize() {
-  if (!sequelize) {
-    const url =
-      process.env.DATABASE_URL ||
-      "postgres://postgres:postgres@localhost:5432/cwa";
-    sequelize = new Sequelize(url, { logging: false });
-  }
-  return sequelize;
-}
+const isTest = process.env.NODE_ENV === 'test';
+export const sequelize =
+  isTest
+    ? new Sequelize('sqlite::memory:', { logging: false })
+    : new Sequelize(process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/cwa', {
+        dialect: isTest ? 'sqlite' : 'postgres',
+        logging: false,
+      });
 
 export class Output extends Model {
   declare id: number;
   declare title: string;
   declare html: string;
+  declare data?: any; // 👈 new (state snapshot)
 }
+Output.init(
+  {
+    title: { type: DataTypes.STRING, allowNull: false },
+    html:  { type: DataTypes.TEXT,   allowNull: false },
+    // JSONB in Postgres; JSON in SQLite – Sequelize handles both:
+    data:  { type: (sequelize.getDialect() === 'postgres' ? DataTypes.JSONB : DataTypes.JSON), allowNull: true },
+  },
+  { sequelize, modelName: 'Output' }
+);
 
-let modelsInitialized = false;
-function initModels() {
-  if (modelsInitialized) return;
-  const s = getSequelize();
-  Output.init(
-    {
-      title: { type: DataTypes.STRING, allowNull: false },
-      html:  { type: DataTypes.TEXT,   allowNull: false },
-    },
-    { sequelize: s, modelName: "output" }
-  );
-  modelsInitialized = true;
-}
-
+let synced = false;
 export async function ensureDb() {
-  initModels();
-  const s = getSequelize();
-  await s.authenticate();
-  await s.sync();
+  if (!synced) {
+    await sequelize.sync({ alter: true }); // 👈 add column if missing (safe for assignment)
+    synced = true;
+  }
 }

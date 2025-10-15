@@ -36,6 +36,9 @@ export default function EscapeRoom() {
   const [timeUp, setTimeUp] = useState(false);
   const [timerKey, setTimerKey] = useState(0); // force Timer remount on restart
 
+  // NEW: remember the last saved run id
+  const [lastSavedId, setLastSavedId] = useState<number | null>(null);
+
   const canNext = useMemo(() => completed[active], [completed, active]);
   const allDone = useMemo(() => Object.values(completed).every(Boolean), [completed]);
 
@@ -63,10 +66,127 @@ export default function EscapeRoom() {
   }
 
   async function saveRun() {
-    alert('Save-Run will be implemented after backend/API commit.');
+    const snapshot = {
+      activeStage: active,
+      completed,
+      minutes: mins,
+      timeUp,
+      hotspotClicked,
+      savedAt: new Date().toISOString(),
+    };
+
+    // Generate a small HTML summary too
+    const statusList = Object.entries(snapshot.completed)
+      .map(([key, done]) => `<li>${done ? '✔' : '✖'} ${key}</li>`)
+      .join('');
+
+    const html = `
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"/>
+<title>Escape Room Snapshot</title>
+<body style="font-family:system-ui;padding:16px">
+  <h1>Escape Room – Snapshot</h1>
+  <p><b>Active stage:</b> ${snapshot.activeStage}</p>
+  <ul>${statusList}</ul>
+  <p><em>Saved at ${new Date().toLocaleString()}</em></p>
+</body>
+</html>`.trim();
+
+    const payload = {
+      title: `Run @ ${new Date().toLocaleString()}`,
+      html,
+      data: snapshot,
+    };
+
+    try {
+      const res = await fetch('/api/outputs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+      const saved = await res.json();            // <- get { id, ... } back
+      setLastSavedId(saved.id as number);        // <- remember it for UI
+      alert(`Run saved successfully! (Run #${saved.id})`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to save run.');
+    }
   }
-  async function saveHtml() {
-    alert('Generate & Save HTML will be implemented after backend/API commit.');
+
+  async function loadLatestRun() {
+    try {
+      const res = await fetch('/api/outputs', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`GET failed: ${res.status}`);
+      const list: any[] = await res.json();
+      if (!list.length) return alert('No saved runs yet.');
+      const latest = list[0];
+
+      // Prefer structured JSON
+      const data = latest.data;
+      if (data) {
+        setActive(data.activeStage ?? 'format');
+        setCompleted(data.completed ?? { format: false, debug: false, numbers: false, transform: false });
+        setMins(data.minutes ?? 10);
+        setTimeUp(!!data.timeUp);
+        setHotspotClicked(!!data.hotspotClicked);
+        setLastSavedId(latest.id ?? null);
+        alert(`Loaded run #${latest.id}`);
+        return;
+      }
+
+      // Fallback: parse from <pre>…</pre> in html (older saves)
+      const m = /<pre>([\s\S]*)<\/pre>/.exec(latest.html || '');
+      if (m) {
+        const parsed = JSON.parse(m[1]);
+        setActive(parsed.activeStage ?? 'format');
+        setCompleted(parsed.completed ?? { format: false, debug: false, numbers: false, transform: false });
+        setMins(parsed.minutes ?? 10);
+        setTimeUp(!!parsed.timeUp);
+        setHotspotClicked(!!parsed.hotspotClicked);
+        setLastSavedId(latest.id ?? null);
+        alert(`Loaded run #${latest.id} (from HTML)`);
+        return;
+      }
+
+      alert('Saved run has no data to load.');
+    } catch (e: any) {
+      alert(e.message || 'Load failed');
+    }
+  }
+
+  async function loadRunById(id: number) {
+    try {
+      const res = await fetch(`/api/outputs/${id}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`GET id failed: ${res.status}`);
+      const row = await res.json();
+      const data = row.data;
+      if (data) {
+        setActive(data.activeStage ?? 'format');
+        setCompleted(data.completed ?? { format: false, debug: false, numbers: false, transform: false });
+        setMins(data.minutes ?? 10);
+        setTimeUp(!!data.timeUp);
+        setHotspotClicked(!!data.hotspotClicked);
+        setLastSavedId(row.id ?? null);
+        alert(`Loaded run #${row.id}`);
+        return;
+      }
+      const m = /<pre>([\s\S]*)<\/pre>/.exec(row.html || '');
+      if (m) {
+        const parsed = JSON.parse(m[1]);
+        setActive(parsed.activeStage ?? 'format');
+        setCompleted(parsed.completed ?? { format: false, debug: false, numbers: false, transform: false });
+        setMins(parsed.minutes ?? 10);
+        setTimeUp(!!parsed.timeUp);
+        setHotspotClicked(!!parsed.hotspotClicked);
+        setLastSavedId(row.id ?? null);
+        alert(`Loaded run #${row.id} (from HTML)`);
+        return;
+      }
+      alert('Saved run has no data to load.');
+    } catch (e: any) {
+      alert(e.message || 'Load failed');
+    }
   }
 
   return (
@@ -136,12 +256,37 @@ export default function EscapeRoom() {
           </select>
         </div>
 
-        <div className="btn-row">
+        <div className="btn-row" style={{ alignItems: 'center', gap: 12 }}>
           <button className="btn primary" onClick={saveRun} disabled={timeUp}>
             Save Run
           </button>
-          <button className="btn" onClick={saveHtml} disabled={timeUp}>
-            Generate &amp; Save HTML
+          <button className="btn" onClick={loadLatestRun}>
+            Load Latest Run
+          </button>
+
+          {/* NEW: show last saved id */}
+          {lastSavedId && (
+            <span style={{ opacity: 0.85 }}>
+              Last saved: <b>Run #{lastSavedId}</b>{' '}
+              <a className="btn" href={`/api/outputs/${lastSavedId}`} target="_blank" rel="noreferrer">
+                View JSON
+              </a>
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input type="number" min={1} placeholder="Run ID" id="runIdInput" style={{ width: 90, padding: '6px 8px' }} />
+          <button
+            className="btn"
+            onClick={() => {
+              const el = document.getElementById('runIdInput') as HTMLInputElement | null;
+              const id = el ? Number(el.value) : NaN;
+              if (!id) return alert('Enter a valid ID');
+              loadRunById(id);
+            }}
+          >
+            Load by ID
           </button>
         </div>
       </section>
@@ -227,8 +372,7 @@ export default function EscapeRoom() {
             padding: 12,
             borderRadius: 12,
             background: allDone ? 'var(--success-bg, #e8f7ea)' : 'var(--muted)',
-            border: `1px solid ${allDone ? 'var(--success-border, #b7e0bf)' : 'var(--border)'
-              }`,
+            border: `1px solid ${allDone ? 'var(--success-border, #b7e0bf)' : 'var(--border)'}`,
             color: allDone ? 'var(--success-text, #16481b)' : 'var(--text)',
           }}
         >

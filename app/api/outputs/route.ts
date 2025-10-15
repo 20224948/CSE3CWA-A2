@@ -14,9 +14,9 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = await req.json();
   if (!body?.title || !body?.html) {
-    return NextResponse.json({ error: 'Title and HTML required' }, { status: 400 });
+    return NextResponse.json({ error: "Title and HTML required" }, { status: 400 });
   }
-  await ensureDb();  // ✅
-  const item = await Output.create({ title: body.title, html: body.html });
+  await ensureDb();
+  const item = await Output.create({ title: body.title, html: body.html, data: body.data ?? null });
   return NextResponse.json(item, { status: 201 });
 }
