@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Timer from './Timer';
 import EscapeCanvas from './EscapeCanvas';
@@ -8,6 +8,7 @@ import StageFormat from './stages/StageFormat';
 import StageDebug from './stages/StageDebug';
 import StageNumbers from './stages/StageNumbers';
 import StageTransform from './stages/StageTransform';
+import { flushSync } from 'react-dom';
 
 type StageKey = 'format' | 'debug' | 'numbers' | 'transform';
 
@@ -21,8 +22,14 @@ const STAGES: { key: StageKey; label: string }[] = [
 
 export default function EscapeRoom() {
   const [bg] = useState('/escape-room.jpg');
-  const [mins, setMins] = useState(10);
 
+  // --- Timer state ---
+  const [mins, setMins] = useState(10);
+  const [timeUp, setTimeUp] = useState(false);
+  const [timerKey, setTimerKey] = useState(0);        // force Timer remount
+  const [remainingSec, setRemainingSec] = useState(mins * 60);
+
+  // --- Stage state ---
   const [active, setActive] = useState<StageKey>('format');
   const [completed, setCompleted] = useState<Record<StageKey, boolean>>({
     format: false,
@@ -32,19 +39,22 @@ export default function EscapeRoom() {
   });
   const [hotspotClicked, setHotspotClicked] = useState(false);
 
-  // timer / expiry
-  const [timeUp, setTimeUp] = useState(false);
-  const [timerKey, setTimerKey] = useState(0); // force Timer remount on restart
-
-  // NEW: remember the last saved run id
+  // --- UI helper ---
   const [lastSavedId, setLastSavedId] = useState<number | null>(null);
+
+  // Make the View JSON button appear even in headless runs
+  useEffect(() => {
+    const persisted = typeof window !== 'undefined'
+      ? window.localStorage.getItem('lastSavedRunId')
+      : null;
+    if (persisted) setLastSavedId(Number(persisted));
+  }, []);
 
   const canNext = useMemo(() => completed[active], [completed, active]);
   const allDone = useMemo(() => Object.values(completed).every(Boolean), [completed]);
 
   function markDone(stage: StageKey) {
-    if (completed[stage]) return;
-    setCompleted((prev) => ({ ...prev, [stage]: true }));
+    if (!completed[stage]) setCompleted((p) => ({ ...p, [stage]: true }));
   }
 
   function nextStage() {
@@ -62,22 +72,24 @@ export default function EscapeRoom() {
     setActive('format');
     setHotspotClicked(false);
     setTimeUp(false);
-    setTimerKey((k) => k + 1); // restart timer
+    setMins(10);
+    setTimerKey((k) => k + 1);
   }
 
+  // ---------- SAVE ----------
   async function saveRun() {
     const snapshot = {
       activeStage: active,
       completed,
       minutes: mins,
+      remainingSec,
       timeUp,
       hotspotClicked,
       savedAt: new Date().toISOString(),
     };
 
-    // Generate a small HTML summary too
     const statusList = Object.entries(snapshot.completed)
-      .map(([key, done]) => `<li>${done ? '✔' : '✖'} ${key}</li>`)
+      .map(([k, done]) => `<li>${done ? '✔' : '✖'} ${k}</li>`)
       .join('');
 
     const html = `
@@ -93,27 +105,72 @@ export default function EscapeRoom() {
 </body>
 </html>`.trim();
 
-    const payload = {
-      title: `Run @ ${new Date().toLocaleString()}`,
-      html,
-      data: snapshot,
-    };
-
     try {
       const res = await fetch('/api/outputs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ title: `Run @ ${new Date().toLocaleString()}`, html, data: snapshot }),
       });
       if (!res.ok) throw new Error(`Save failed: ${res.status}`);
-      const saved = await res.json();            // <- get { id, ... } back
-      setLastSavedId(saved.id as number);        // <- remember it for UI
+
+      const saved = await res.json();
+
+      // ✅ persist id so "View JSON" survives refresh
+      if (saved?.id) {
+        setLastSavedId(saved.id as number);
+        try { localStorage.setItem('lastSavedRunId', String(saved.id)); } catch { }
+      }
+
+      // tiny delay so the UI paints the link before alert blocks the thread
+      await new Promise(r => setTimeout(r, 50));
+
       alert(`Run saved successfully! (Run #${saved.id})`);
-    } catch (err: any) {
-      alert(err.message || 'Failed to save run.');
+    } catch (e: any) {
+      alert(e.message || 'Failed to save run.');
     }
   }
 
+
+  // ---------- LOAD HELPERS ----------
+  function restoreFromSaved(saved: any) {
+    const savedMinutes = Number(saved?.minutes);
+    const savedRemaining = Number(saved?.remainingSec);
+
+    const restoredMins =
+      Number.isFinite(savedMinutes) && savedMinutes > 0 ? savedMinutes : 10;
+
+    const nextRemaining =
+      Number.isFinite(savedRemaining) && savedRemaining > 0
+        ? Math.floor(savedRemaining)
+        : restoredMins * 60;
+
+    // Set non-timer states
+    flushSync(() => {
+      setActive(saved?.activeStage ?? 'format');
+      setCompleted(saved?.completed ?? { format: false, debug: false, numbers: false, transform: false });
+      setHotspotClicked(!!saved?.hotspotClicked);
+      setMins(restoredMins);
+      setRemainingSec(nextRemaining); // <- must be committed before remount
+      setTimeUp(false);
+    });
+
+    // Remount Timer AFTER remainingSec is committed
+    flushSync(() => {
+      setTimerKey((k) => k + 1);
+    });
+  }
+
+
+  function extractSaved(row: any) {
+    if (row?.data) return row.data;
+    if (typeof row?.html === 'string') {
+      const m = /<pre>([\s\S]*)<\/pre>/.exec(row.html);
+      if (m) try { return JSON.parse(m[1]); } catch { }
+    }
+    return undefined;
+  }
+
+  // ---------- LOAD LATEST ----------
   async function loadLatestRun() {
     try {
       const res = await fetch('/api/outputs', { cache: 'no-store' });
@@ -121,73 +178,43 @@ export default function EscapeRoom() {
       const list: any[] = await res.json();
       if (!list.length) return alert('No saved runs yet.');
       const latest = list[0];
+      const saved = extractSaved(latest);
+      if (!saved) return alert('Saved run has no data to load.');
 
-      // Prefer structured JSON
-      const data = latest.data;
-      if (data) {
-        setActive(data.activeStage ?? 'format');
-        setCompleted(data.completed ?? { format: false, debug: false, numbers: false, transform: false });
-        setMins(data.minutes ?? 10);
-        setTimeUp(!!data.timeUp);
-        setHotspotClicked(!!data.hotspotClicked);
-        setLastSavedId(latest.id ?? null);
-        alert(`Loaded run #${latest.id}`);
-        return;
-      }
+      restoreFromSaved(saved);
 
-      // Fallback: parse from <pre>…</pre> in html (older saves)
-      const m = /<pre>([\s\S]*)<\/pre>/.exec(latest.html || '');
-      if (m) {
-        const parsed = JSON.parse(m[1]);
-        setActive(parsed.activeStage ?? 'format');
-        setCompleted(parsed.completed ?? { format: false, debug: false, numbers: false, transform: false });
-        setMins(parsed.minutes ?? 10);
-        setTimeUp(!!parsed.timeUp);
-        setHotspotClicked(!!parsed.hotspotClicked);
-        setLastSavedId(latest.id ?? null);
-        alert(`Loaded run #${latest.id} (from HTML)`);
-        return;
-      }
+      // ✅ remember this id for refreshes
+      setLastSavedId(latest.id);
+      try { localStorage.setItem('lastSavedRunId', String(latest.id)); } catch { }
 
-      alert('Saved run has no data to load.');
+      // if you want an alert, keep it async so paint happens first
+      // setTimeout(() => alert(`Loaded run #${latest.id}`), 0);
     } catch (e: any) {
       alert(e.message || 'Load failed');
     }
   }
 
+  // ---------- LOAD BY ID ----------
   async function loadRunById(id: number) {
     try {
       const res = await fetch(`/api/outputs/${id}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`GET id failed: ${res.status}`);
       const row = await res.json();
-      const data = row.data;
-      if (data) {
-        setActive(data.activeStage ?? 'format');
-        setCompleted(data.completed ?? { format: false, debug: false, numbers: false, transform: false });
-        setMins(data.minutes ?? 10);
-        setTimeUp(!!data.timeUp);
-        setHotspotClicked(!!data.hotspotClicked);
-        setLastSavedId(row.id ?? null);
-        alert(`Loaded run #${row.id}`);
-        return;
-      }
-      const m = /<pre>([\s\S]*)<\/pre>/.exec(row.html || '');
-      if (m) {
-        const parsed = JSON.parse(m[1]);
-        setActive(parsed.activeStage ?? 'format');
-        setCompleted(parsed.completed ?? { format: false, debug: false, numbers: false, transform: false });
-        setMins(parsed.minutes ?? 10);
-        setTimeUp(!!parsed.timeUp);
-        setHotspotClicked(!!parsed.hotspotClicked);
-        setLastSavedId(row.id ?? null);
-        alert(`Loaded run #${row.id} (from HTML)`);
-        return;
-      }
-      alert('Saved run has no data to load.');
+      const saved = extractSaved(row);
+      if (!saved) return alert('Saved run has no data to load.');
+
+      restoreFromSaved(saved);
+
+      // ✅ remember this id for refreshes
+      setLastSavedId(row.id);
+      try { localStorage.setItem('lastSavedRunId', String(row.id)); } catch { }
+
+      // setTimeout(() => alert(`Loaded run #${row.id}`), 0);
     } catch (e: any) {
       alert(e.message || 'Load failed');
     }
   }
+
 
   return (
     <main className="grid gap-5 md:gap-6 text-neutral-800 dark:text-neutral-100">
@@ -196,16 +223,15 @@ export default function EscapeRoom() {
       {/* Background */}
       <EscapeCanvas
         backgroundUrl={bg}
-        isActive={active === 'debug'} // 👈 only clickable on debug stage
+        isActive={active === 'debug'}
         onHotspot={() => {
-          if (timeUp) return;
-          setHotspotClicked(true);
+          if (!timeUp) setHotspotClicked(true);
         }}
       />
 
       <hr className="section-divider" />
 
-      {/* Controls row */}
+      {/* Controls */}
       <section className="grid gap-3">
         <div className="btn-row" style={{ alignItems: 'center' }}>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -231,8 +257,10 @@ export default function EscapeRoom() {
           <Timer
             key={timerKey}
             minutes={mins}
+            initialSeconds={remainingSec}
+            warnAt={1}
             onExpire={() => setTimeUp(true)}
-            warnAt={15}
+            onTick={(r) => setRemainingSec(r)}
           />
 
           <select
@@ -263,16 +291,28 @@ export default function EscapeRoom() {
           <button className="btn" onClick={loadLatestRun}>
             Load Latest Run
           </button>
-
-          {/* NEW: show last saved id */}
-          {lastSavedId && (
-            <span style={{ opacity: 0.85 }}>
-              Last saved: <b>Run #{lastSavedId}</b>{' '}
-              <a className="btn" href={`/api/outputs/${lastSavedId}`} target="_blank" rel="noreferrer">
-                View JSON
-              </a>
-            </span>
-          )}
+          <span style={{ opacity: 0.85 }}>
+            {lastSavedId ? (
+              <>
+                Current: <b>Run #{lastSavedId}</b>{' '}
+                <a
+                  className="btn"
+                  href={`/api/outputs/${lastSavedId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View JSON
+                </a>
+              </>
+            ) : (
+              <>
+                Last saved: <b>–</b>{' '}
+                <button className="btn" disabled title="No saved runs yet">
+                  View JSON
+                </button>
+              </>
+            )}
+          </span>
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -304,22 +344,9 @@ export default function EscapeRoom() {
           opacity: timeUp ? 0.6 : 1,
         }}
       >
-        {/* Interaction blocker when time is up */}
-        {timeUp && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: 12,
-              background: 'transparent',
-              pointerEvents: 'auto',
-            }}
-          />
-        )}
+        {timeUp && <div style={{ position: 'absolute', inset: 0, borderRadius: 12 }} />}
 
-        {active === 'format' && (
-          <StageFormat onComplete={() => markDone('format')} onNext={nextStage} />
-        )}
+        {active === 'format' && <StageFormat onComplete={() => markDone('format')} onNext={nextStage} />}
         {active === 'debug' && (
           <StageDebug
             hotspotClicked={hotspotClicked}
@@ -327,17 +354,13 @@ export default function EscapeRoom() {
             onNext={nextStage}
           />
         )}
-        {active === 'numbers' && (
-          <StageNumbers onComplete={() => markDone('numbers')} onNext={nextStage} />
-        )}
-        {active === 'transform' && (
-          <StageTransform onComplete={() => markDone('transform')} />
-        )}
+        {active === 'numbers' && <StageNumbers onComplete={() => markDone('numbers')} onNext={nextStage} />}
+        {active === 'transform' && <StageTransform onComplete={() => markDone('transform')} />}
       </section>
 
       <hr className="section-divider" />
 
-      {/* Time up OR Unlock bar */}
+      {/* Footer */}
       {timeUp ? (
         <section
           aria-live="polite"
@@ -349,15 +372,7 @@ export default function EscapeRoom() {
             color: 'var(--danger-text, #fca5a5)',
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              gap: 12,
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
             <strong>⏰ Time’s up!</strong>
             <div className="btn-row">
               <button className="btn" onClick={playAgain}>Play Again</button>
@@ -377,7 +392,7 @@ export default function EscapeRoom() {
           }}
         >
           {allDone ? (
-            <div className="flex flex-wrap items-center justify-between gap-3" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' } as any}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <strong>🔓 Exit unlocked!</strong>
               <div className="btn-row">
                 <button className="btn" onClick={playAgain}>Play Again</button>
@@ -385,25 +400,18 @@ export default function EscapeRoom() {
               </div>
             </div>
           ) : (
-            <div>
-              <strong>Locked</strong> — complete all stages to unlock the exit.
-            </div>
+            <div><strong>Locked</strong> — complete all stages to unlock the exit.</div>
           )}
         </section>
       )}
 
       <hr className="section-divider" />
 
-      {/* Survey */}
       <section>
         <h3 style={{ marginTop: 0 }}>Feedback</h3>
         <p>
           Please complete the ethics survey:{' '}
-          <a
-            className="btn"
-            href="https://redcap.latrobe.edu.au/redcap/surveys/?s=PPEKFTMPXF4KKEFY"
-            target="_blank"
-          >
+          <a className="btn" href="https://redcap.latrobe.edu.au/redcap/surveys/?s=PPEKFTMPXF4KKEFY" target="_blank">
             Open Survey
           </a>
         </p>

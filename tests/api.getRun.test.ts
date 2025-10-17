@@ -1,42 +1,33 @@
-import { POST as postOutputs } from '../app/api/outputs/route';
 import { GET as getOutputById } from '../app/api/outputs/[id]/route';
 import { sequelize } from '../lib/sequelize';
+import { lastCreatedId } from './api.saveRun.test';
+
+const LABEL = 'getRun';
+
+// Pretty banners without console.log headers
+const start = () =>
+  process.stdout.write(`\n\x1b[36m[${LABEL}] ── START ───────────────────────────────\x1b[0m\n`);
+const end = () =>
+  process.stdout.write(`\x1b[36m[${LABEL}] ── END ─────────────────────────────────\x1b[0m\n`);
 
 describe('API /api/outputs/:id (GET)', () => {
   beforeAll(async () => {
-    await sequelize.sync({ force: true });
+    await sequelize.sync(); // no force here
   });
 
-  it('creates and retrieves a saved run by ID', async () => {
-    // Create record first
-    const payload = {
-      title: 'Test Run - Retrieve',
-      html: '<h1>Saved Run</h1>',
-      data: { stage: 'numbers', minutes: 12 },
-    };
+  it('retrieves the run saved from the previous test', async () => {
+    if (!lastCreatedId) throw new Error('No run ID from save test');
 
-    const postRes = await postOutputs(
-      new Request('http://localhost/api/outputs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-    );
-    const created = await postRes.json();
-    expect(created.id).toBeDefined();
-
-    // Fetch by ID
-    const getRes = await getOutputById(
-      new Request(`http://localhost/api/outputs/${created.id}`),
-      { params: { id: String(created.id) } }
+    const res = await getOutputById(
+      new Request(`http://localhost/api/outputs/${lastCreatedId}`),
+      { params: { id: String(lastCreatedId) } } as any
     );
 
-    expect(getRes.status).toBe(200);
-    const fetched = await getRes.json();
+    expect(res.status).toBe(200);
 
-    // Validate returned record
-    expect(fetched.id).toBe(created.id);
-    expect(fetched.title).toBe(payload.title);
-    expect(fetched.data).toEqual(expect.objectContaining({ stage: 'numbers' }));
+    const json = await res.json();
+    expect(json.id).toBe(lastCreatedId);
+    expect(json.title).toMatch(/Test Run - Save/i);
+    expect(json.data).toEqual(expect.objectContaining({ stage: 'debug' }));
   });
 });
