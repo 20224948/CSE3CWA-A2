@@ -4,8 +4,8 @@ import ThemeSwitch from "./components/ThemeSwitch";
 import HamburgerMenu from "./components/HamburgerMenu";
 
 export const metadata: Metadata = {
-  title: "CSE3CWA – Assignment 1",
-  description: "Assignment 1 for CSE3CWA, created by Mark Prado (20224948).",
+  title: "CSE3CWA - Assignment 2",
+  description: "Assignment 2 for CSE3CWA, created by Mark Prado (20224948).",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
