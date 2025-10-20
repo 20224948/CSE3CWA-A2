@@ -321,6 +321,23 @@ export default function EscapeRoom() {
               </>
             )}
           </span>
+          <button
+            onClick={() => {
+              if (!lastSavedId) {
+                alert("Please save a run first!");
+                return;
+              }
+
+              const base =
+                process.env.NEXT_PUBLIC_DYNAMIC_BASE ||
+                "https://9frf8zx9g0.execute-api.us-east-1.amazonaws.com"; // fallback
+              window.open(`${base}/play/${lastSavedId}`, "_blank");
+            }}
+            className="btn"
+          >
+            View Dynamic Page
+          </button>
+
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
