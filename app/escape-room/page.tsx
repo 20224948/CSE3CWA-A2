@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Timer from './Timer';
+import dynamic from 'next/dynamic';
 import EscapeCanvas from './EscapeCanvas';
-import StageFormat from './stages/StageFormat';
-import StageDebug from './stages/StageDebug';
-import StageNumbers from './stages/StageNumbers';
-import StageTransform from './stages/StageTransform';
+const StageFormat = dynamic(() => import('./stages/StageFormat'), { ssr: false });
+const StageDebug = dynamic(() => import('./stages/StageDebug'), { ssr: false });
+const StageNumbers = dynamic(() => import('./stages/StageNumbers'), { ssr: false });
+const StageTransform = dynamic(() => import('./stages/StageTransform'), { ssr: false });
 import { flushSync } from 'react-dom';
 
 type StageKey = 'format' | 'debug' | 'numbers' | 'transform';
@@ -21,7 +22,7 @@ const STAGES: { key: StageKey; label: string }[] = [
 ];
 
 export default function EscapeRoom() {
-  const [bg] = useState('/escape-room.jpg');
+  const [bg] = useState('/escape-room.avif');
 
   // --- Timer state ---
   const [mins, setMins] = useState(10);
