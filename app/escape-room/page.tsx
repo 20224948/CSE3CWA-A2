@@ -241,7 +241,14 @@ export default function EscapeRoom() {
               min={1}
               max={60}
               value={mins}
-              onChange={(e) => setMins(+e.target.value)}
+              onChange={(e) => {
+                const v = Math.max(1, Math.min(60, Number(e.target.value) || 0));
+                setMins(v);
+                setTimeUp(false);
+                setRemainingSec(v * 60);   // ← keep seconds in sync with the edited minutes
+                setTimerKey((k) => k + 1); // ← force the Timer to re-seed from initialSeconds
+              }}
+
               style={{
                 width: 80,
                 padding: '8px 10px',
@@ -405,17 +412,6 @@ export default function EscapeRoom() {
         </section>
       )}
 
-      <hr className="section-divider" />
-
-      <section>
-        <h3 style={{ marginTop: 0 }}>Feedback</h3>
-        <p>
-          Please complete the ethics survey:{' '}
-          <a className="btn" href="https://redcap.latrobe.edu.au/redcap/surveys/?s=PPEKFTMPXF4KKEFY" target="_blank">
-            Open Survey
-          </a>
-        </p>
-      </section>
     </main>
   );
 }
