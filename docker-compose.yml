@@ -15,14 +15,13 @@ services:
     build: .
     container_name: cwa-web
     depends_on:
-      - db
-    env_file:
-      - .env    
+      - db  
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/cwa
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_DYNAMIC_BASE: "https://9rfl8zx9g0.execute-api.us-east-1.amazonaws.com"
     ports:
       - "80:3000"
 
