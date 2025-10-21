@@ -26,7 +26,9 @@ export async function GET(_req: Request, { params }: any) {
   return tracer.startActiveSpan('GET /api/outputs/:id', async (span) => {
     try {
       await ensureDb();
-      const id = Number(params?.id);
+      // params may be a Promise in Next.js dynamic API routes — await it first
+      const resolvedParams = await params;
+      const id = Number(resolvedParams?.id);
       span.setAttribute('output.id', id);
 
       const row = await Output.findByPk(id);
