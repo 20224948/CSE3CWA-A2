@@ -21,7 +21,7 @@ services:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_DYNAMIC_BASE: "https://9rfl8zx9g0.execute-api.us-east-1.amazonaws.com"
+      NEXT_PUBLIC_DYNAMIC_BASE: "https://9frf8zx9g0.execute-api.us-east-1.amazonaws.com"
     ports:
       - "80:3000"
 
