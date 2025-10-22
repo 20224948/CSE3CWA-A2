@@ -124,7 +124,7 @@ Load testing verified backend stability and response time of the `/api/outputs` 
 
 ## Demonstration Video
 A recorded walkthrough demonstrating the Docker build, AWS EC2 deployment, Lambda function execution, and monitoring setup will be available once uploaded.  
-**[View on OneDrive – (placeholder link)](https://link-to-onedrive-video)**
+**[View on OneDrive]([https://link-to-onedrive-video](https://latrobeuni-my.sharepoint.com/:v:/g/personal/20224948_students_ltu_edu_au/EWpm_Hgj0f5MlIZpvfz8vNMBIg4Fc8wtnhT1gjqwOhuidQ?nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJPbmVEcml2ZUZvckJ1c2luZXNzIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXciLCJyZWZlcnJhbFZpZXciOiJNeUZpbGVzTGlua0NvcHkifX0&e=KIQkNL))**
 
 ---
 
